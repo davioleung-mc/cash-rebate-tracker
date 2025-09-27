@@ -1,0 +1,42 @@
+{
+  "name": "blockchain-spec-kit",
+  "version": "1.0.0",
+  "description": "A blockchain implementation using GitHub Spec Kit methodology for spec-driven development",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src/**/*.ts",
+    "spec:validate": "node scripts/validate-specs.js"
+  },
+  "keywords": [
+    "blockchain",
+    "spec-kit",
+    "typescript",
+    "decentralized",
+    "consensus",
+    "cryptocurrency"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.6.3",
+    "@typescript-eslint/eslint-plugin": "^6.7.2",
+    "@typescript-eslint/parser": "^6.7.2",
+    "eslint": "^8.49.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.3",
+    "ts-jest": "^29.1.1",
+    "tsx": "^3.12.10",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
