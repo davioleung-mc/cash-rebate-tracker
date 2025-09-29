@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rebate Tracker Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🔍 Rebate Tracker Explorer</h1>
+            <p>Transparent cash rebate verification on Polygon</p>
+            <div class="network-info">
+                <span class="network-badge">Amoy Testnet</span>
+                <a href="https://amoy.polygonscan.com/address/0x4A9AE17B2CA4BB5b18f6FaceCfBF91fe42c495e6" target="_blank" class="contract-link">
+                    View Contract on PolygonScan
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Search Section -->
+        <section class="search-section">
+            <h2>🔎 Search Rebates</h2>
+            
+            <div class="search-tabs">
+                <button class="tab-btn active" onclick="showTab('client')">Search by Client ID</button>
+                <button class="tab-btn" onclick="showTab('product')">Search by Product ID</button>
+                <button class="tab-btn" onclick="showTab('record')">Search by Record ID</button>
+            </div>
+
+            <!-- Client Search Tab -->
+            <div id="client-tab" class="tab-content active">
+                <div class="search-form">
+                    <input type="text" id="client-search" placeholder="Enter Client ID (e.g., CLIENT_001)" />
+                    <button onclick="searchClient()">Search Client</button>
+                </div>
+                <div id="client-results" class="results-section"></div>
+            </div>
+
+            <!-- Product Search Tab -->
+            <div id="product-tab" class="tab-content">
+                <div class="search-form">
+                    <input type="text" id="product-search" placeholder="Enter Product ID (e.g., LAPTOP_PRO_2024)" />
+                    <button onclick="searchProduct()">Search Product</button>
+                </div>
+                <div id="product-results" class="results-section"></div>
+            </div>
+
+            <!-- Record Search Tab -->
+            <div id="record-tab" class="tab-content">
+                <div class="search-form">
+                    <input type="number" id="record-search" placeholder="Enter Record ID (e.g., 0, 1, 2...)" />
+                    <button onclick="searchRecord()">Search Record</button>
+                </div>
+                <div id="record-results" class="results-section"></div>
+            </div>
+        </section>
+
+        <!-- Contract Statistics -->
+        <section class="stats-section">
+            <h2>📊 Contract Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Records</h3>
+                    <p id="total-records" class="stat-value">Loading...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Records</h3>
+                    <p id="active-records" class="stat-value">Loading...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Rebate Amount</h3>
+                    <p id="total-amount" class="stat-value">Loading...</p>
+                </div>
+                                    <div class="stat-item">
+                        <div class="stat-label">Contract Address</div>
+                        <div class="stat-value" id="contract-address">Loading...</div>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="refresh-stats" class="refresh-button">
+                        🔄 Refresh Data
+                    </button>
+                    <button id="reconnect" class="refresh-button" style="display: none;">
+                        🔗 Reconnect
+                    </button>
+                </div>
+            </div>
+            </div>
+        </section>
+
+        <!-- Recent Records -->
+        <section class="recent-section">
+            <h2>🕐 Recent Rebate Records</h2>
+            <div id="recent-records" class="records-list">
+                <p>Loading recent records...</p>
+            </div>
+            <button onclick="loadRecentRecords()" class="refresh-btn">🔄 Refresh</button>
+        </section>
+
+        <!-- Help Section -->
+        <section class="help-section">
+            <h2>❓ How to Use</h2>
+            <div class="help-content">
+                <div class="help-item">
+                    <h4>🔍 Search by Client ID</h4>
+                    <p>Enter a client identifier to view all rebates received by that client. Shows total amount and transaction history.</p>
+                </div>
+                <div class="help-item">
+                    <h4>📦 Search by Product ID</h4>
+                    <p>Enter a product identifier to see all rebates given for that product across all clients.</p>
+                </div>
+                <div class="help-item">
+                    <h4>🆔 Search by Record ID</h4>
+                    <p>Enter a specific record number (0, 1, 2...) to view detailed information about that rebate transaction.</p>
+                </div>
+                <div class="help-item">
+                    <h4>🔗 Verification</h4>
+                    <p>Click any transaction hash to view it on PolygonScan for complete transparency and verification.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Rebate Tracker Explorer | Built with Polygon & Spec Kit</p>
+            <p>
+                <a href="https://polygon.technology/" target="_blank">Powered by Polygon</a> | 
+                <a href="https://amoy.polygonscan.com/" target="_blank">Amoy PolygonScan</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading blockchain data...</p>
+    </div>
+
+    <!-- Contract ABI and JavaScript -->
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
