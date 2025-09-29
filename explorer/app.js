@@ -8,65 +8,127 @@ class CashRebateExplorer {
     }
 
     async init() {
+        // Set up event listeners first (they work without blockchain connection)
+        this.setupEventListeners();
+        
         try {
             // Initialize Web3 connection
             await this.initializeWeb3();
-            
-            // Set up event listeners
-            this.setupEventListeners();
             
             // Load initial data
             await this.loadContractStats();
             await this.loadRecentRecords();
             
-            console.log('Cash Rebate Explorer initialized successfully');
+            console.log('✅ Cash Rebate Explorer initialized successfully');
         } catch (error) {
-            console.error('Failed to initialize application:', error);
-            this.showError('Failed to connect to blockchain. Please check your connection.');
+            console.error('❌ Failed to initialize blockchain connection:', error);
+            this.showError(`Connection failed: ${error.message}`);
+            this.showOfflineMode();
         }
     }
 
+    showOfflineMode() {
+        // Show static information when blockchain connection fails
+        document.getElementById('total-records').textContent = 'Offline';
+        document.getElementById('active-records').textContent = 'Offline';
+        document.getElementById('total-amount').textContent = 'Offline';
+        document.getElementById('network-name').textContent = CONFIG.network.name;
+        document.getElementById('contract-address').textContent = CONFIG.contractAddress;
+        
+        // Show offline message
+        const offlineMessage = `
+            <div class="offline-notice">
+                <h3>⚠️ Offline Mode</h3>
+                <p>Unable to connect to the Polygon network. You can still view contract information:</p>
+                <div class="contract-info">
+                    <p><strong>Contract Address:</strong> ${CONFIG.contractAddress}</p>
+                    <p><strong>Network:</strong> ${CONFIG.network.name}</p>
+                    <p><strong>View on Explorer:</strong> 
+                        <a href="${CONFIG.network.explorerUrl}/address/${CONFIG.contractAddress}" target="_blank">
+                            PolygonScan
+                        </a>
+                    </p>
+                </div>
+                <p>Try refreshing the page or check your internet connection.</p>
+            </div>
+        `;
+        
+        document.getElementById('recent-records').innerHTML = offlineMessage;
+    }
+
     async initializeWeb3() {
-        const rpcUrls = [
-            "https://polygon-amoy.drpc.org",
-            "https://rpc-amoy.polygon.technology/",
-            "https://polygon-amoy.blockpi.network/v1/rpc/public",
-            "https://amoy.polygonscan.com/"
-        ];
+        // Check if ethers is available
+        if (typeof ethers === 'undefined') {
+            throw new Error('ethers.js library not loaded');
+        }
+
+        const rpcUrls = CONFIG.network.rpcUrls;
+        let lastError;
         
         for (let i = 0; i < rpcUrls.length; i++) {
             try {
-                console.log(`Trying RPC endpoint ${i + 1}:`, rpcUrls[i]);
+                console.log(`🔗 Attempting connection ${i + 1}/${rpcUrls.length}: ${rpcUrls[i]}`);
                 
                 // Create provider for Amoy testnet
-                this.provider = new ethers.JsonRpcProvider(rpcUrls[i]);
+                this.provider = new ethers.JsonRpcProvider(rpcUrls[i], {
+                    chainId: CONFIG.network.chainId,
+                    name: CONFIG.network.name
+                });
                 
-                // Create contract instance
-                this.contract = new ethers.Contract(
-                    CONFIG.contractAddress,
-                    CONFIG.contractABI,
-                    this.provider
-                );
+                // Test connection with shorter timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
                 
-                // Test connection with timeout
-                const networkPromise = this.provider.getNetwork();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Timeout')), 10000)
-                );
-                
-                await Promise.race([networkPromise, timeoutPromise]);
-                
-                console.log('Successfully connected to blockchain');
-                this.isConnected = true;
-                this.updateConnectionStatus(true);
-                return;
+                try {
+                    // Test basic connectivity
+                    const network = await this.provider.getNetwork();
+                    console.log(`✅ Connected to network: ${network.name} (Chain ID: ${network.chainId})`);
+                    
+                    // Verify chain ID matches
+                    if (Number(network.chainId) !== CONFIG.network.chainId) {
+                        throw new Error(`Chain ID mismatch: expected ${CONFIG.network.chainId}, got ${network.chainId}`);
+                    }
+                    
+                    // Create contract instance
+                    this.contract = new ethers.Contract(
+                        CONFIG.contractAddress,
+                        CONFIG.contractABI,
+                        this.provider
+                    );
+                    
+                    // Test contract connectivity
+                    await this.contract.getTotalRecords();
+                    console.log(`✅ Contract connection successful`);
+                    
+                    clearTimeout(timeoutId);
+                    this.isConnected = true;
+                    this.updateConnectionStatus(true);
+                    return;
+                    
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    throw error;
+                }
                 
             } catch (error) {
-                console.warn(`RPC endpoint ${i + 1} failed:`, error.message);
+                lastError = error;
+                console.warn(`❌ RPC ${i + 1} failed:`, error.message);
+                
                 if (i === rpcUrls.length - 1) {
-                    console.error('All RPC endpoints failed');
+                    console.error('🚫 All RPC endpoints failed');
                     this.updateConnectionStatus(false);
-                    throw new Error('Unable to connect to any RPC endpoint');
+                    
+                    // Provide more specific error message
+                    let errorMsg = 'Unable to connect to Polygon network. ';
+                    if (error.message.includes('fetch')) {
+                        errorMsg += 'Network connectivity issue.';
+                    } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+                        errorMsg += 'Connection timeout.';
+                    } else {
+                        errorMsg += `Error: ${error.message}`;
+                    }
+                    
+                    throw new Error(errorMsg);
                 }
             }
         }
@@ -596,6 +658,33 @@ const additionalStyles = `
     color: #666;
     padding: 40px;
     font-style: italic;
+}
+
+.offline-notice {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.offline-notice h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.5rem;
+}
+
+.offline-notice .contract-info {
+    background: rgba(255,255,255,0.1);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    text-align: left;
+}
+
+.offline-notice .contract-info a {
+    color: #fff3e0;
+    text-decoration: underline;
 }
 
 .button-group {

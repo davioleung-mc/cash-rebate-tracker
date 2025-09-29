@@ -3,11 +3,16 @@ const CONFIG = {
     // Your deployed contract address on Amoy testnet
     contractAddress: "0x4A9AE17B2CA4BB5b18f6FaceCfBF91fe42c495e6",
     
-    // Amoy Testnet Configuration
+    // Amoy Testnet Configuration with multiple RPC endpoints
     network: {
         name: "Polygon Amoy Testnet",
         chainId: 80002,
-        rpcUrl: "https://polygon-amoy.drpc.org",
+        rpcUrls: [
+            "https://rpc-amoy.polygon.technology/",
+            "https://polygon-amoy.drpc.org",
+            "https://polygon-amoy.blockpi.network/v1/rpc/public",
+            "https://amoy.polygonscan.com/api/eth_jsonRpc"
+        ],
         explorerUrl: "https://amoy.polygonscan.com"
     },
     
