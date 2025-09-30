@@ -437,12 +437,15 @@ class CashRebateExplorer {
             this.showLoading();
             this.clearSearchResults();
             
-            const records = await this.contract.getRebatesByClient(clientId);
+            console.log(`🔍 Searching for client: ${clientId}`);
+            const records = await this.contract.getClientRebates(clientId);
+            console.log(`🔍 Found ${records.length} records for client ${clientId}`);
             
             // Calculate total amount
             let totalAmount = ethers.BigNumber.from(0);
             for (const record of records) {
                 totalAmount = totalAmount.add(record.amount);
+                console.log(`🔍 Record amount: ${this.formatAmount(record.amount)} MATIC`);
             }
             
             // Display summary
