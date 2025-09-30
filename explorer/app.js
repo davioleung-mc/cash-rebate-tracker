@@ -320,9 +320,13 @@ class CashRebateExplorer {
                 const stats = await this.contract.getContractStats();
                 totalAmount = stats[2];
                 activeRecords = stats[1];
-                console.log('📊 Contract stats loaded successfully');
+                console.log('📊 Contract stats loaded successfully:', {
+                    totalRecords: stats[0].toString(),
+                    activeRecords: stats[1].toString(),
+                    totalAmount: this.formatAmount(stats[2])
+                });
             } catch (error) {
-                console.warn('📊 getContractStats failed, using individual calls:', error);
+                console.warn('📊 getContractStats failed, using individual calls:', error.message);
                 // Fallback - calculate active records by checking recent records
                 activeRecords = totalRecords; // For now, assume all are active
                 totalAmount = ethers.BigNumber.from(0); // Default to 0
@@ -333,12 +337,14 @@ class CashRebateExplorer {
                     const limit = Math.min(Number(totalRecords), 100); // Limit to avoid timeout
                     let sum = ethers.BigNumber.from(0);
                     
-                    for (let i = Math.max(1, Number(totalRecords) - limit + 1); i <= Number(totalRecords); i++) {
+                    for (let i = Math.max(0, Number(totalRecords) - limit); i < Number(totalRecords); i++) {
                         try {
                             const record = await this.contract.getRebateRecord(i);
                             sum = sum.add(record.amount);
+                            console.log(`📊 Added record ${i} amount:`, this.formatAmount(record.amount));
                         } catch (recordError) {
-                            console.warn(`📊 Failed to load record ${i}:`, recordError);
+                            console.warn(`📊 Failed to load record ${i}:`, recordError.message);
+                            // Don't break the loop, just skip invalid records
                         }
                     }
                     totalAmount = sum;
@@ -399,10 +405,10 @@ class CashRebateExplorer {
             }
             
             const records = [];
-            const startId = Math.max(1, Number(totalRecords) - recordsToLoad + 1);
+            const startId = Math.max(0, Number(totalRecords) - recordsToLoad);
             
-            console.log(`🕐 Loading records from ${startId} to ${totalRecords}...`);
-            for (let i = Number(totalRecords); i >= startId; i--) {
+            console.log(`🕐 Loading records from ${startId} to ${Number(totalRecords) - 1} (0-based indexing)...`);
+            for (let i = Number(totalRecords) - 1; i >= startId; i--) {
                 try {
                     const record = await this.contract.getRebateRecord(i);
                     records.push({ id: i, ...record });
@@ -525,15 +531,25 @@ class CashRebateExplorer {
             this.showLoading();
             this.clearSearchResults();
             
-            const record = await this.contract.getRebateRecord(parseInt(recordId));
+            const userRecordId = parseInt(recordId);
+            // Convert from 1-based user input to 0-based contract indexing
+            const contractRecordId = userRecordId - 1;
             
-            const recordWithId = { id: parseInt(recordId), ...record };
+            if (contractRecordId < 0) {
+                throw new Error('Record ID must be 1 or greater');
+            }
+            
+            console.log(`🔍 Searching for user Record #${userRecordId} (contract index ${contractRecordId})`);
+            const record = await this.contract.getRebateRecord(contractRecordId);
+            
+            // Display with user-friendly 1-based ID
+            const recordWithId = { id: userRecordId, ...record };
             this.displayRecords([recordWithId], 'record-results');
             
             this.hideLoading();
         } catch (error) {
             console.error('Record search failed:', error);
-            this.showError('Record not found or failed to load.');
+            this.showError(`Record #${recordId} not found or failed to load.`);
             this.hideLoading();
         }
     }
