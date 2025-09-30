@@ -188,55 +188,82 @@ class CashRebateExplorer {
     }
 
     setupEventListeners() {
-        // Tab switching
-        document.querySelectorAll('.tab-button').forEach(button => {
+        console.log('🎧 Setting up event listeners...');
+        
+        // Tab switching - check if elements exist
+        const tabButtons = document.querySelectorAll('.tab-button');
+        console.log(`🎧 Found ${tabButtons.length} tab buttons`);
+        tabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 this.switchTab(e.target.dataset.tab);
             });
         });
 
-        // Search forms
-        document.getElementById('search-client').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.searchByClient();
-        });
+        // Search input enter key handlers
+        const searchInputs = [
+            { id: 'client-search', handler: () => this.searchByClient() },
+            { id: 'product-search', handler: () => this.searchByProduct() },
+            { id: 'record-search', handler: () => this.searchByRecord() }
+        ];
 
-        document.getElementById('search-product').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.searchByProduct();
-        });
-
-        document.getElementById('search-record').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.searchByRecord();
+        searchInputs.forEach(({ id, handler }) => {
+            const element = document.getElementById(id);
+            if (element) {
+                console.log(`🎧 Setting up event listener for ${id}`);
+                element.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        handler();
+                    }
+                });
+            } else {
+                console.warn(`🎧 Element ${id} not found`);
+            }
         });
 
         // Refresh button
-        document.getElementById('refresh-stats').addEventListener('click', () => {
-            this.loadContractStats();
-            this.loadRecentRecords();
-        });
+        const refreshButton = document.getElementById('refresh-stats');
+        if (refreshButton) {
+            console.log('🎧 Setting up refresh button listener');
+            refreshButton.addEventListener('click', () => {
+                this.loadContractStats();
+                this.loadRecentRecords();
+            });
+        } else {
+            console.warn('🎧 Refresh button not found');
+        }
 
         // Reconnect button
-        document.getElementById('reconnect').addEventListener('click', async () => {
-            document.getElementById('reconnect').style.display = 'none';
-            this.showLoading();
-            try {
-                await this.initializeWeb3();
-                await this.loadContractStats();
-                await this.loadRecentRecords();
-            } catch (error) {
-                console.error('Reconnection failed:', error);
-                this.showError('Reconnection failed. Please try again.');
-                document.getElementById('reconnect').style.display = 'inline-block';
-            }
-            this.hideLoading();
-        });
+        const reconnectButton = document.getElementById('reconnect');
+        if (reconnectButton) {
+            console.log('🎧 Setting up reconnect button listener');
+            reconnectButton.addEventListener('click', async () => {
+                reconnectButton.style.display = 'none';
+                this.showLoading();
+                try {
+                    await this.initializeWeb3();
+                    await this.loadContractStats();
+                    await this.loadRecentRecords();
+                } catch (error) {
+                    console.error('Reconnection failed:', error);
+                    this.showError('Reconnection failed. Please try again.');
+                    reconnectButton.style.display = 'inline-block';
+                }
+                this.hideLoading();
+            });
+        } else {
+            console.warn('🎧 Reconnect button not found');
+        }
 
-        // Load more button
-        document.getElementById('load-more').addEventListener('click', () => {
-            this.loadMoreRecords();
-        });
+        // Load more button (if it exists)
+        const loadMoreButton = document.getElementById('load-more');
+        if (loadMoreButton) {
+            console.log('🎧 Setting up load more button listener');
+            loadMoreButton.addEventListener('click', () => {
+                this.loadMoreRecords();
+            });
+        }
+
+        console.log('🎧 Event listeners setup complete');
     }
 
     switchTab(tabName) {
