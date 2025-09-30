@@ -655,8 +655,12 @@ class CashRebateExplorer {
 
     updateConnectionStatus(connected) {
         const statusElement = document.getElementById('connection-status');
-        statusElement.textContent = connected ? 'Connected' : 'Disconnected';
-        statusElement.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+        if (statusElement) {
+            statusElement.textContent = connected ? 'Connected' : 'Disconnected';
+            statusElement.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
+        } else {
+            console.log(`📡 Connection status: ${connected ? 'Connected' : 'Disconnected'} (no status element to update)`);
+        }
         
         // Show/hide reconnect button
         const reconnectButton = document.getElementById('reconnect');
