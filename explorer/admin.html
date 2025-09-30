@@ -308,6 +308,32 @@
             <h1>🏪 Cash Rebate Admin Panel</h1>
             <p>Record new rebates on the blockchain</p>
             <div class="connection-status" id="connection-status">Connecting...</div>
+            
+            <!-- Network Warning Banner -->
+            <div id="network-warning" style="
+                background: #fff3cd;
+                border: 2px solid #ffc107;
+                color: #856404;
+                padding: 15px;
+                border-radius: 8px;
+                margin-top: 15px;
+                display: none;
+            ">
+                <strong>⚠️ Wrong Network Detected</strong><br>
+                You're connected to <span id="current-network-name"></span> but this contract is on Polygon Amoy Testnet.<br>
+                <button id="quick-switch-btn" style="
+                    background: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    margin-top: 10px;
+                    font-weight: bold;
+                ">
+                    🔄 Switch to Polygon Amoy
+                </button>
+            </div>
         </div>
 
         <!-- Rebate Recording Form -->

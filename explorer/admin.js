@@ -13,6 +13,9 @@ class RebateAdmin {
         // Always setup event listeners first
         this.setupEventListeners();
         
+        // Add quick network check first
+        await this.checkNetworkStatus();
+        
         try {
             await this.initializeWeb3();
             await this.loadRecentRecords();
@@ -20,6 +23,40 @@ class RebateAdmin {
         } catch (error) {
             console.error('❌ Failed to initialize admin interface:', error);
             this.showDetailedError(error);
+        }
+    }
+
+    async checkNetworkStatus() {
+        if (typeof window.ethereum !== 'undefined') {
+            try {
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const chainIdDecimal = parseInt(chainId, 16);
+                
+                if (chainIdDecimal !== CONFIG.network.chainId) {
+                    const networkNames = {
+                        1: 'Ethereum Mainnet',
+                        137: 'Polygon Mainnet', 
+                        80002: 'Polygon Amoy Testnet',
+                        11155111: 'Sepolia Testnet'
+                    };
+                    
+                    const currentNetworkName = networkNames[chainIdDecimal] || `Chain ID ${chainIdDecimal}`;
+                    
+                    // Show warning banner
+                    const warningBanner = document.getElementById('network-warning');
+                    const networkNameSpan = document.getElementById('current-network-name');
+                    const switchBtn = document.getElementById('quick-switch-btn');
+                    
+                    if (warningBanner && networkNameSpan && switchBtn) {
+                        networkNameSpan.textContent = currentNetworkName;
+                        warningBanner.style.display = 'block';
+                        
+                        switchBtn.onclick = () => this.switchToAmoyNetwork();
+                    }
+                }
+            } catch (error) {
+                console.warn('Could not check network status:', error);
+            }
         }
     }
 

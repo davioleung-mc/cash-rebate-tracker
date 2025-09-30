@@ -153,7 +153,24 @@
                 if (chainIdDecimal === 80002) {
                     addResult('success', '✅ Connected to Polygon Amoy Testnet');
                 } else {
-                    addResult('warning', `⚠️ Wrong network. Please switch to Polygon Amoy (Chain ID: 80002)`);
+                    addResult('warning', `⚠️ Wrong network. Currently on Chain ID: ${chainIdDecimal}. Need Chain ID: 80002`);
+                    
+                    // Add network switch button
+                    const switchButton = `
+                        <button onclick="switchToAmoyNetwork()" style="
+                            background: #007bff; 
+                            color: white; 
+                            border: none; 
+                            padding: 10px 20px; 
+                            border-radius: 5px; 
+                            cursor: pointer; 
+                            margin-top: 10px;
+                            font-weight: bold;
+                        ">
+                            🔄 Switch to Polygon Amoy Testnet
+                        </button>
+                    `;
+                    addResult('warning', switchButton);
                 }
                 
                 const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -264,7 +281,99 @@
             await testMetaMask();
             await testContract();
             
-            addResult('success', '🎉 Test completed! Check results above.');
+            // Check if we're on wrong network and provide solution
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                    const chainIdDecimal = parseInt(chainId, 16);
+                    
+                    if (chainIdDecimal !== 80002) {
+                        addResult('error', `
+                            🚨 <strong>Network Mismatch Detected!</strong><br>
+                            You're on Chain ID ${chainIdDecimal} (${getNetworkName(chainIdDecimal)})<br>
+                            But the contract is deployed on Chain ID 80002 (Polygon Amoy)<br><br>
+                            <button onclick="switchToAmoyNetwork()" style="
+                                background: #28a745; 
+                                color: white; 
+                                border: none; 
+                                padding: 12px 24px; 
+                                border-radius: 6px; 
+                                cursor: pointer; 
+                                font-weight: bold;
+                                font-size: 16px;
+                            ">
+                                🔄 Fix: Switch to Polygon Amoy
+                            </button>
+                        `);
+                    } else {
+                        addResult('success', '🎉 Test completed! All systems ready for rebate recording.');
+                    }
+                } catch (error) {
+                    addResult('warning', 'Could not determine network status');
+                }
+            }
+        }
+
+        function getNetworkName(chainId) {
+            const networks = {
+                1: 'Ethereum Mainnet',
+                137: 'Polygon Mainnet', 
+                80002: 'Polygon Amoy Testnet',
+                11155111: 'Sepolia Testnet'
+            };
+            return networks[chainId] || 'Unknown Network';
+        }
+
+        // Network switching function
+        async function switchToAmoyNetwork() {
+            if (typeof window.ethereum === 'undefined') {
+                addResult('error', '❌ MetaMask not available');
+                return;
+            }
+
+            try {
+                addResult('warning', '🔄 Attempting to switch to Polygon Amoy...');
+                
+                // First try to switch to existing network
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x13882' }], // 80002 in hex
+                });
+                
+                addResult('success', '✅ Switched to Polygon Amoy! Running test again...');
+                setTimeout(runFullTest, 2000);
+                
+            } catch (switchError) {
+                console.log('Switch failed:', switchError);
+                
+                // If network doesn't exist, add it
+                if (switchError.code === 4902 || switchError.code === -32603) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x13882',
+                                chainName: 'Polygon Amoy Testnet',
+                                nativeCurrency: {
+                                    name: 'MATIC',
+                                    symbol: 'MATIC',
+                                    decimals: 18
+                                },
+                                rpcUrls: ['https://rpc-amoy.polygon.technology/'],
+                                blockExplorerUrls: ['https://amoy.polygonscan.com/']
+                            }]
+                        });
+                        
+                        addResult('success', '✅ Amoy network added and switched! Running test...');
+                        setTimeout(runFullTest, 2000);
+                        
+                    } catch (addError) {
+                        addResult('error', `❌ Failed to add network: ${addError.message}`);
+                    }
+                } else {
+                    addResult('error', `❌ Failed to switch network: ${switchError.message}`);
+                }
+            }
         }
 
         // Auto-run test when page loads
