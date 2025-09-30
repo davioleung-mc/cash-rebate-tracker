@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Rebate Admin - Record New Rebates</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Additional styles for admin interface */
+        .admin-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group.error input {
+            border-color: #e74c3c;
+            background-color: #fdf2f2;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .form-group.error .error-message {
+            display: block;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #e1e5e9;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .preview-section {
+            background: #f8f9fa;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .preview-section.show {
+            display: block;
+        }
+
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .preview-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .preview-value {
+            color: #666;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .status-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .modal-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        .recent-records {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .record-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .record-item .record-header {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .record-item .record-details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .admin-container {
+                padding: 10px;
+            }
+            
+            .form-container {
+                padding: 20px;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🏪 Cash Rebate Admin Panel</h1>
+            <p>Record new rebates on the blockchain</p>
+            <div class="connection-status" id="connection-status">Connecting...</div>
+        </div>
+
+        <!-- Rebate Recording Form -->
+        <div class="form-container">
+            <h2>📝 Record New Rebate</h2>
+            
+            <form id="rebate-form">
+                <div class="form-group" id="client-id-group">
+                    <label for="client-id">Customer ID *</label>
+                    <input type="text" id="client-id" name="clientId" required 
+                           placeholder="e.g., CUSTOMER_12345 or email@domain.com">
+                    <div class="error-message" id="client-id-error"></div>
+                </div>
+
+                <div class="form-group" id="product-id-group">
+                    <label for="product-id">Product ID *</label>
+                    <input type="text" id="product-id" name="productId" required 
+                           placeholder="e.g., IPHONE_15_PRO, LAPTOP_001">
+                    <div class="error-message" id="product-id-error"></div>
+                </div>
+
+                <div class="form-group" id="purchase-amount-group">
+                    <label for="purchase-amount">Purchase Amount (USD) *</label>
+                    <input type="number" id="purchase-amount" name="purchaseAmount" 
+                           step="0.01" min="0" required placeholder="e.g., 999.99">
+                    <div class="error-message" id="purchase-amount-error"></div>
+                </div>
+
+                <div class="form-group" id="rebate-percentage-group">
+                    <label for="rebate-percentage">Rebate Percentage *</label>
+                    <select id="rebate-percentage" name="rebatePercentage" required>
+                        <option value="">Select rebate percentage</option>
+                        <option value="1">1%</option>
+                        <option value="2">2%</option>
+                        <option value="3">3%</option>
+                        <option value="5">5%</option>
+                        <option value="10">10%</option>
+                        <option value="15">15%</option>
+                        <option value="20">20%</option>
+                        <option value="custom">Custom Amount</option>
+                    </select>
+                    <div class="error-message" id="rebate-percentage-error"></div>
+                </div>
+
+                <div class="form-group" id="custom-rebate-group" style="display: none;">
+                    <label for="custom-rebate">Custom Rebate Amount (USD)</label>
+                    <input type="number" id="custom-rebate" name="customRebate" 
+                           step="0.01" min="0" placeholder="e.g., 49.95">
+                    <div class="error-message" id="custom-rebate-error"></div>
+                </div>
+
+                <div class="form-group" id="transaction-hash-group">
+                    <label for="transaction-hash">Original Transaction Hash (Optional)</label>
+                    <input type="text" id="transaction-hash" name="transactionHash" 
+                           placeholder="Original purchase transaction reference">
+                    <div class="error-message" id="transaction-hash-error"></div>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="preview-section" id="preview-section">
+                    <h3>📋 Rebate Summary</h3>
+                    <div class="preview-item">
+                        <span class="preview-label">Customer ID:</span>
+                        <span class="preview-value" id="preview-customer"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Product ID:</span>
+                        <span class="preview-value" id="preview-product"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Purchase Amount:</span>
+                        <span class="preview-value" id="preview-purchase"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Rebate Amount:</span>
+                        <span class="preview-value" id="preview-rebate"></span>
+                    </div>
+                    <div class="preview-item">
+                        <span class="preview-label">Rebate Percentage:</span>
+                        <span class="preview-value" id="preview-percentage"></span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="preview-btn">
+                        👁️ Preview Rebate
+                    </button>
+                    <button type="button" class="btn btn-primary" id="record-btn" disabled>
+                        ⛓️ Record on Blockchain
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="clear-btn">
+                        🗑️ Clear Form
+                    </button>
+                </div>
+            </form>
+
+            <!-- Status Messages -->
+            <div class="status-message" id="status-message"></div>
+        </div>
+
+        <!-- Recent Records -->
+        <div class="recent-records">
+            <h3>📊 Recent Rebate Records</h3>
+            <div id="recent-records-list">
+                <div class="loading">Loading recent records...</div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="index.html" class="btn btn-secondary">🔍 View Explorer</a>
+            <a href="test.html" class="btn btn-secondary">🔧 Test Connection</a>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="confirmation-modal" id="confirmation-modal">
+        <div class="modal-content">
+            <div class="modal-header">⚠️ Confirm Blockchain Recording</div>
+            <div class="modal-warning">
+                <strong>IMPORTANT:</strong> Once recorded on the blockchain, this rebate record 
+                <strong>cannot be modified or deleted</strong>. Please verify all information is correct.
+            </div>
+            <div class="preview-section show">
+                <div class="preview-item">
+                    <span class="preview-label">Customer ID:</span>
+                    <span class="preview-value" id="modal-customer"></span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Product ID:</span>
+                    <span class="preview-value" id="modal-product"></span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Rebate Amount:</span>
+                    <span class="preview-value" id="modal-rebate"></span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Estimated Cost:</span>
+                    <span class="preview-value">~$0.001 USD (gas fees)</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-recording">❌ Cancel</button>
+                <button class="btn btn-primary" id="confirm-recording">✅ Confirm & Record</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Recording rebate on blockchain...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
