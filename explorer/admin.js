@@ -10,6 +10,14 @@ class RebateAdmin {
     }
 
     async init() {
+        console.log('🔄 Starting admin initialization...');
+        
+        // Update loading status
+        const loadingScripts = document.getElementById('loading-scripts');
+        const connecting = document.getElementById('connecting');
+        if (loadingScripts) loadingScripts.style.display = 'none';
+        if (connecting) connecting.style.display = 'inline';
+        
         // Always setup event listeners first
         this.setupEventListeners();
         
@@ -20,8 +28,15 @@ class RebateAdmin {
             await this.initializeWeb3();
             await this.loadRecentRecords();
             console.log('✅ Rebate Admin initialized successfully');
+            
+            // Hide loading indicator
+            if (connecting) connecting.style.display = 'none';
         } catch (error) {
             console.error('❌ Failed to initialize admin interface:', error);
+            
+            // Hide loading indicator
+            if (connecting) connecting.style.display = 'none';
+            
             this.showDetailedError(error);
         }
     }
@@ -814,10 +829,26 @@ class RebateAdmin {
     }
 }
 
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize with proper ethers.js loading check
+function initializeAdmin() {
+    if (typeof ethers === 'undefined') {
+        console.log('Waiting for ethers.js to load...');
+        setTimeout(initializeAdmin, 500);
+        return;
+    }
+    
+    console.log('✅ Initializing admin with ethers.js version:', ethers.version);
     window.rebateAdmin = new RebateAdmin();
-});
+}
+
+// Initialize when page loads (with delay for script loading)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initializeAdmin, 1000);
+    });
+} else {
+    setTimeout(initializeAdmin, 1000);
+}
 
 // Handle page visibility changes (refresh data when tab becomes visible)
 document.addEventListener('visibilitychange', () => {

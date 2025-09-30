@@ -307,7 +307,10 @@
         <div class="admin-header">
             <h1>🏪 Cash Rebate Admin Panel</h1>
             <p>Record new rebates on the blockchain</p>
-            <div class="connection-status" id="connection-status">Connecting...</div>
+            <div class="connection-status" id="connection-status">
+                <span id="loading-scripts">📚 Loading libraries...</span>
+                <span id="connecting" style="display: none;">🔗 Connecting to blockchain...</span>
+            </div>
             
             <!-- Network Warning Banner -->
             <div id="network-warning" style="
@@ -442,11 +445,32 @@
             </div>
         </div>
 
+        <!-- Debug Info (remove in production) -->
+        <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 20px 0; font-family: monospace; font-size: 0.9em;">
+            <strong>Debug Info:</strong><br>
+            <span id="debug-info">Loading scripts...</span>
+        </div>
+
         <!-- Navigation -->
         <div style="text-align: center; margin: 30px 0;">
             <a href="index.html" class="btn btn-secondary">🔍 View Explorer</a>
+            <a href="wallet-test.html" class="btn btn-secondary">🧪 Wallet Test</a>
             <a href="test.html" class="btn btn-secondary">🔧 Test Connection</a>
         </div>
+
+        <script>
+            // Debug info updater
+            function updateDebugInfo(message) {
+                const debugElement = document.getElementById('debug-info');
+                if (debugElement) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    debugElement.innerHTML += `<br>[${timestamp}] ${message}`;
+                }
+            }
+
+            // Track script loading
+            updateDebugInfo('Page loaded, starting script loading...');
+        </script>
     </div>
 
     <!-- Confirmation Modal -->
@@ -488,23 +512,92 @@
         <p>Recording rebate on blockchain...</p>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <!-- Scripts with enhanced loading -->
     <script>
-        // Wait for ethers to load before proceeding
-        window.addEventListener('load', function() {
-            if (typeof ethers === 'undefined') {
-                console.error('Ethers.js failed to load, trying alternative CDN...');
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
-                script.onload = function() {
-                    console.log('Ethers.js loaded from alternative CDN');
-                };
-                document.head.appendChild(script);
+        // Enhanced ethers.js loading with multiple fallbacks
+        let ethersLoadAttempts = 0;
+        const maxAttempts = 3;
+        
+        const ethersSources = [
+            'https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js',
+            'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js',
+            'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js'
+        ];
+        
+        function loadEthers(sourceIndex = 0) {
+            if (sourceIndex >= ethersSources.length) {
+                console.error('All ethers.js sources failed');
+                updateDebugInfo('❌ All ethers.js sources failed');
+                document.getElementById('connection-status').innerHTML = 
+                    '<div style="color: #dc3545;">❌ Failed to load ethers.js library - try refreshing</div>';
+                return;
             }
-        });
+            
+            console.log(`Attempting to load ethers from source ${sourceIndex + 1}:`, ethersSources[sourceIndex]);
+            updateDebugInfo(`Trying ethers.js source ${sourceIndex + 1}...`);
+            
+            const script = document.createElement('script');
+            script.src = ethersSources[sourceIndex];
+            script.onload = function() {
+                if (typeof ethers !== 'undefined') {
+                    console.log('✅ Ethers.js loaded successfully from:', ethersSources[sourceIndex]);
+                    console.log('Version:', ethers.version);
+                    updateDebugInfo(`✅ Ethers.js loaded (${ethers.version}) from source ${sourceIndex + 1}`);
+                    
+                    // Load other scripts after ethers is confirmed loaded
+                    loadConfigAndAdmin();
+                } else {
+                    console.warn('Ethers script loaded but ethers object not available');
+                    updateDebugInfo(`⚠️ Source ${sourceIndex + 1} loaded but ethers not available`);
+                    loadEthers(sourceIndex + 1);
+                }
+            };
+            script.onerror = function() {
+                console.warn(`Failed to load from source ${sourceIndex + 1}`);
+                updateDebugInfo(`❌ Source ${sourceIndex + 1} failed to load`);
+                loadEthers(sourceIndex + 1);
+            };
+            document.head.appendChild(script);
+        }
+        
+        function loadConfigAndAdmin() {
+            updateDebugInfo('Loading config.js...');
+            
+            // Load config.js
+            const configScript = document.createElement('script');
+            configScript.src = 'config.js';
+            configScript.onload = function() {
+                console.log('✅ Config loaded');
+                updateDebugInfo('✅ Config loaded');
+                
+                updateDebugInfo('Loading admin.js...');
+                
+                // Load admin.js
+                const adminScript = document.createElement('script');
+                adminScript.src = 'admin.js';
+                adminScript.onload = function() {
+                    console.log('✅ Admin script loaded');
+                    updateDebugInfo('✅ Admin script loaded - initializing...');
+                };
+                adminScript.onerror = function() {
+                    console.error('❌ Failed to load admin.js');
+                    updateDebugInfo('❌ Failed to load admin.js');
+                };
+                document.head.appendChild(adminScript);
+            };
+            configScript.onerror = function() {
+                console.error('❌ Failed to load config.js');
+                updateDebugInfo('❌ Failed to load config.js');
+            };
+            document.head.appendChild(configScript);
+        }
+        
+        // Start loading ethers when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => loadEthers());
+        } else {
+            loadEthers();
+        }
     </script>
-    <script src="config.js"></script>
-    <script src="admin.js"></script>
 </body>
 </html>
