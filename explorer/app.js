@@ -58,7 +58,7 @@ class CashRebateExplorer {
         this.provider = null;
         this.contract = null;
         this.isConnected = false;
-        this.init();
+        // Don't call init() in constructor - will be called externally
     }
 
     async init() {
@@ -68,18 +68,19 @@ class CashRebateExplorer {
         try {
             // First ensure ethers.js is loaded
             await loadEthersLibrary();
+            console.log('🔄 Ethers.js loaded, initializing explorer...');
             
             // Initialize Web3 connection
             await this.initializeWeb3();
+            console.log('🔄 Web3 initialized, loading data...');
             
             // Load initial data
             await this.loadContractStats();
             await this.loadRecentRecords();
+            console.log('✅ Explorer initialization complete');
             
-            console.log('✅ Cash Rebate Explorer initialized successfully');
         } catch (error) {
-            console.error('❌ Failed to initialize blockchain connection:', error);
-            this.showError(`Connection failed: ${error.message}`);
+            console.error('Failed to initialize:', error);
             this.showOfflineMode();
         }
     }
@@ -256,27 +257,41 @@ class CashRebateExplorer {
     }
 
     async loadContractStats() {
+        console.log('📊 Loading contract stats...');
+        
         try {
+            // Check if required elements exist
+            const requiredElements = ['total-records', 'active-records', 'total-amount', 'network-name', 'contract-address'];
+            for (const elementId of requiredElements) {
+                if (!document.getElementById(elementId)) {
+                    throw new Error(`Required element '${elementId}' not found in DOM`);
+                }
+            }
+            
             this.showLoading();
+            console.log('📊 Loading overlay shown, fetching total records...');
             
             // Load stats individually to ensure compatibility
             const totalRecords = await this.contract.getTotalRecords();
-            console.log('Total records:', totalRecords.toString());
+            console.log('📊 Total records loaded:', totalRecords.toString());
             
             // Try to get full stats, fallback to individual calls
             let totalAmount, activeRecords;
             try {
+                console.log('📊 Attempting to get contract stats...');
                 const stats = await this.contract.getContractStats();
                 totalAmount = stats[2];
                 activeRecords = stats[1];
+                console.log('📊 Contract stats loaded successfully');
             } catch (error) {
-                console.warn('getContractStats failed, using individual calls:', error);
+                console.warn('📊 getContractStats failed, using individual calls:', error);
                 // Fallback - calculate active records by checking recent records
                 activeRecords = totalRecords; // For now, assume all are active
                 totalAmount = ethers.BigNumber.from(0); // Default to 0
                 
                 // Try to calculate total amount by iterating recent records
                 try {
+                    console.log('📊 Calculating total amount from individual records...');
                     const limit = Math.min(Number(totalRecords), 100); // Limit to avoid timeout
                     let sum = ethers.BigNumber.from(0);
                     
@@ -285,16 +300,18 @@ class CashRebateExplorer {
                             const record = await this.contract.getRebateRecord(i);
                             sum = sum.add(record.amount);
                         } catch (recordError) {
-                            console.warn(`Failed to load record ${i}:`, recordError);
+                            console.warn(`📊 Failed to load record ${i}:`, recordError);
                         }
                     }
                     totalAmount = sum;
+                    console.log('📊 Total amount calculated:', this.formatAmount(totalAmount));
                 } catch (amountError) {
-                    console.warn('Failed to calculate total amount:', amountError);
+                    console.warn('📊 Failed to calculate total amount:', amountError);
                 }
             }
             
             // Update stats display
+            console.log('📊 Updating DOM elements...');
             document.getElementById('total-records').textContent = totalRecords.toString();
             document.getElementById('active-records').textContent = activeRecords.toString();
             document.getElementById('total-amount').textContent = 
@@ -304,41 +321,57 @@ class CashRebateExplorer {
             document.getElementById('network-name').textContent = CONFIG.network.name;
             document.getElementById('contract-address').textContent = CONFIG.contractAddress;
             
+            console.log('📊 Stats display updated successfully');
             this.hideLoading();
         } catch (error) {
-            console.error('Failed to load contract stats:', error);
+            console.error('📊 Failed to load contract stats:', error);
             this.showError('Failed to load contract statistics: ' + error.message);
             this.hideLoading();
         }
     }
 
     async loadRecentRecords(limit = 10) {
+        console.log('🕐 Loading recent records...');
+        
         try {
+            // Check if recent-records element exists
+            if (!document.getElementById('recent-records')) {
+                throw new Error("Required element 'recent-records' not found in DOM");
+            }
+            
+            console.log('🕐 Fetching total records...');
             const totalRecords = await this.contract.getTotalRecords();
             const recordsToLoad = Math.min(Number(totalRecords), limit);
+            
+            console.log(`🕐 Total records: ${totalRecords}, loading: ${recordsToLoad}`);
             
             if (recordsToLoad === 0) {
                 document.getElementById('recent-records').innerHTML = 
                     '<div class="no-results">No records found</div>';
+                console.log('🕐 No records to display');
                 return;
             }
             
             const records = [];
             const startId = Math.max(1, Number(totalRecords) - recordsToLoad + 1);
             
+            console.log(`🕐 Loading records from ${startId} to ${totalRecords}...`);
             for (let i = Number(totalRecords); i >= startId; i--) {
                 try {
                     const record = await this.contract.getRebateRecord(i);
                     records.push({ id: i, ...record });
+                    console.log(`🕐 Loaded record ${i}: ${record.clientId}`);
                 } catch (error) {
-                    console.warn(`Failed to load record ${i}:`, error);
+                    console.warn(`🕐 Failed to load record ${i}:`, error);
                 }
             }
             
+            console.log(`🕐 Displaying ${records.length} records...`);
             this.displayRecords(records, 'recent-records');
+            console.log('🕐 Recent records loaded successfully');
         } catch (error) {
-            console.error('Failed to load recent records:', error);
-            this.showError('Failed to load recent records.');
+            console.error('🕐 Failed to load recent records:', error);
+            this.showError('Failed to load recent records: ' + error.message);
         }
     }
 
@@ -829,13 +862,30 @@ let explorerInstance = null;
 // Initialize explorer when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Load ethers.js first, then create explorer instance
-        await loadEthersLibrary();
+        console.log('🔄 DOM loaded, initializing explorer...');
+        
+        // Create explorer instance
         explorerInstance = new CashRebateExplorer();
+        
+        // Initialize it (this will load ethers.js and connect to blockchain)
+        await explorerInstance.init();
+        
+        console.log('✅ Explorer fully initialized and ready');
     } catch (error) {
         console.error('Failed to initialize explorer:', error);
+        
         // Show error message to user
-        document.body.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;"><h2>❌ Loading Error</h2><p>Failed to load required libraries. Please refresh the page.</p></div>';
+        const errorHtml = `
+            <div style="padding: 20px; text-align: center; color: #dc3545; max-width: 600px; margin: 50px auto; background: #f8d7da; border-radius: 10px;">
+                <h2>❌ Loading Error</h2>
+                <p>Failed to initialize the blockchain explorer.</p>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p><button onclick="location.reload()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">🔄 Try Again</button></p>
+            </div>
+        `;
+        
+        const container = document.querySelector('.container') || document.body;
+        container.innerHTML = errorHtml;
     }
 });
 
