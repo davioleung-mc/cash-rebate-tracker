@@ -154,9 +154,12 @@ class CashRebateExplorer {
                     // Test contract connectivity
                     const totalRecords = await this.contract.getTotalRecords();
                     console.log(`✅ Contract connection successful - Total records: ${totalRecords}`);
+                    console.log('✅ Contract instance set:', !!this.contract);
+                    console.log('✅ Provider set:', !!this.provider);
                     
                     this.isConnected = true;
                     this.updateConnectionStatus(true);
+                    console.log('✅ Returning from successful connection, contract should be ready');
                     return;
                     
                 } catch (error) {
@@ -295,8 +298,16 @@ class CashRebateExplorer {
                 }
             }
             
+            // Check if contract is initialized
+            if (!this.contract) {
+                throw new Error('Contract not initialized - this.contract is null');
+            }
+            
             this.showLoading();
-            console.log('📊 Loading overlay shown, fetching total records...');
+            console.log('📊 Loading overlay shown, contract check passed');
+            console.log('📊 Contract instance:', !!this.contract);
+            console.log('📊 Provider instance:', !!this.provider);
+            console.log('📊 Connected status:', this.isConnected);
             
             // Load stats individually to ensure compatibility
             const totalRecords = await this.contract.getTotalRecords();
@@ -366,7 +377,15 @@ class CashRebateExplorer {
                 throw new Error("Required element 'recent-records' not found in DOM");
             }
             
-            console.log('🕐 Fetching total records...');
+            // Check if contract is initialized
+            if (!this.contract) {
+                throw new Error('Contract not initialized - this.contract is null');
+            }
+            
+            console.log('🕐 Contract check passed, fetching total records...');
+            console.log('🕐 Contract instance:', !!this.contract);
+            console.log('🕐 Provider instance:', !!this.provider);
+            
             const totalRecords = await this.contract.getTotalRecords();
             const recordsToLoad = Math.min(Number(totalRecords), limit);
             
