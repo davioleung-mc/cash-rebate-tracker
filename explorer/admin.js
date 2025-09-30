@@ -10,15 +10,162 @@ class RebateAdmin {
     }
 
     async init() {
+        // Always setup event listeners first
+        this.setupEventListeners();
+        
         try {
             await this.initializeWeb3();
-            this.setupEventListeners();
             await this.loadRecentRecords();
             console.log('✅ Rebate Admin initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize admin interface:', error);
-            this.showStatus('error', `Connection failed: ${error.message}`);
+            this.showDetailedError(error);
         }
+    }
+
+    showDetailedError(error) {
+        let errorHtml = `<strong>Connection Error:</strong><br>`;
+        
+        if (error.message.includes('not authorized')) {
+            errorHtml += `
+                🔐 <strong>Authorization Issue:</strong><br>
+                ${error.message}<br><br>
+                <strong>Solutions:</strong><br>
+                • Make sure you're using the wallet that deployed the contract<br>
+                • Check if your address is added as an authorized user<br>
+                • Verify you're on the correct network (Polygon Amoy)<br>
+                <button onclick="window.rebateAdmin.runDiagnostics()" class="btn btn-secondary" style="margin-top: 10px;">
+                    🔍 Run Diagnostics
+                </button>
+            `;
+        } else if (error.message.includes('Wrong network')) {
+            errorHtml += `
+                🌐 <strong>Network Issue:</strong><br>
+                ${error.message}<br><br>
+                <strong>To fix:</strong><br>
+                1. Open MetaMask<br>
+                2. Click network dropdown<br>
+                3. Add Polygon Amoy Testnet if not present<br>
+                4. Switch to Polygon Amoy Testnet<br>
+                <button onclick="window.rebateAdmin.addAmoyNetwork()" class="btn btn-primary" style="margin-top: 10px;">
+                    ➕ Add Amoy Network to MetaMask
+                </button>
+            `;
+        } else if (error.message.includes('MetaMask')) {
+            errorHtml += `
+                🦊 <strong>MetaMask Issue:</strong><br>
+                ${error.message}<br><br>
+                <strong>Solutions:</strong><br>
+                • Install MetaMask browser extension<br>
+                • Reload the page after installing<br>
+                • Make sure MetaMask is unlocked<br>
+                <a href="https://metamask.io/download/" target="_blank" class="btn btn-primary" style="margin-top: 10px;">
+                    📥 Download MetaMask
+                </a>
+            `;
+        } else {
+            errorHtml += `
+                ⚠️ <strong>General Error:</strong><br>
+                ${error.message}<br><br>
+                <button onclick="window.rebateAdmin.runDiagnostics()" class="btn btn-secondary" style="margin-top: 10px;">
+                    🔍 Run Diagnostics
+                </button>
+                <button onclick="location.reload()" class="btn btn-secondary" style="margin-top: 10px;">
+                    🔄 Reload Page
+                </button>
+            `;
+        }
+        
+        this.showStatus('error', errorHtml);
+    }
+
+    async addAmoyNetwork() {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: '0x13882', // 80002 in hex
+                    chainName: 'Polygon Amoy Testnet',
+                    nativeCurrency: {
+                        name: 'MATIC',
+                        symbol: 'MATIC',
+                        decimals: 18
+                    },
+                    rpcUrls: ['https://rpc-amoy.polygon.technology/'],
+                    blockExplorerUrls: ['https://amoy.polygonscan.com/']
+                }]
+            });
+            
+            this.showStatus('success', 'Amoy network added! Please try connecting again.');
+            setTimeout(() => location.reload(), 2000);
+        } catch (error) {
+            this.showStatus('error', `Failed to add network: ${error.message}`);
+        }
+    }
+
+    async runDiagnostics() {
+        console.log('🔍 Running comprehensive diagnostics...');
+        
+        let diagnosticHtml = '<h4>🔍 Diagnostic Results:</h4><br>';
+        
+        // Check 1: MetaMask availability
+        if (typeof window.ethereum !== 'undefined') {
+            diagnosticHtml += '✅ MetaMask detected<br>';
+            
+            try {
+                // Check 2: Account access
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    diagnosticHtml += `✅ Wallet connected: ${accounts[0].slice(0,6)}...${accounts[0].slice(-4)}<br>`;
+                    
+                    // Check 3: Network
+                    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                    const chainIdDecimal = parseInt(chainId, 16);
+                    diagnosticHtml += `🌐 Current network: Chain ID ${chainIdDecimal}<br>`;
+                    
+                    if (chainIdDecimal === CONFIG.network.chainId) {
+                        diagnosticHtml += '✅ Correct network (Polygon Amoy)<br>';
+                        
+                        // Check 4: Contract accessibility
+                        try {
+                            const provider = new ethers.providers.Web3Provider(window.ethereum);
+                            const contract = new ethers.Contract(CONFIG.contractAddress, CONFIG.contractABI, provider);
+                            
+                            const owner = await contract.owner();
+                            diagnosticHtml += `✅ Contract accessible<br>`;
+                            diagnosticHtml += `👑 Contract owner: ${owner.slice(0,6)}...${owner.slice(-4)}<br>`;
+                            
+                            // Check 5: Authorization
+                            const isAuthorized = await contract.isAuthorized(accounts[0]);
+                            const isOwner = accounts[0].toLowerCase() === owner.toLowerCase();
+                            
+                            if (isAuthorized || isOwner) {
+                                diagnosticHtml += '✅ Wallet is authorized<br>';
+                                diagnosticHtml += '<strong>✅ All checks passed! Try refreshing the page.</strong>';
+                            } else {
+                                diagnosticHtml += '❌ Wallet is NOT authorized<br>';
+                                diagnosticHtml += `<strong>Solution:</strong> Use the owner wallet (${owner.slice(0,6)}...${owner.slice(-4)}) or add your wallet as an authority.`;
+                            }
+                        } catch (contractError) {
+                            diagnosticHtml += `❌ Contract error: ${contractError.message}<br>`;
+                        }
+                    } else {
+                        diagnosticHtml += `❌ Wrong network! Expected: ${CONFIG.network.chainId}<br>`;
+                        diagnosticHtml += `<button onclick="window.rebateAdmin.addAmoyNetwork()" class="btn btn-primary">Add Amoy Network</button>`;
+                    }
+                } else {
+                    diagnosticHtml += '❌ No wallet connected<br>';
+                    diagnosticHtml += 'Please connect your MetaMask wallet and try again.';
+                }
+            } catch (error) {
+                diagnosticHtml += `❌ Wallet error: ${error.message}<br>`;
+            }
+        } else {
+            diagnosticHtml += '❌ MetaMask not detected<br>';
+            diagnosticHtml += '<a href="https://metamask.io/download/" target="_blank">Download MetaMask</a>';
+        }
+        
+        this.showStatus('info', diagnosticHtml);
     }
 
     async initializeWeb3() {
@@ -34,8 +181,11 @@ class RebateAdmin {
                 
                 // Verify network
                 const network = await this.provider.getNetwork();
+                console.log(`🌐 Connected to network: ${network.name} (Chain ID: ${network.chainId})`);
+                console.log(`🎯 Expected network: ${CONFIG.network.name} (Chain ID: ${CONFIG.network.chainId})`);
+                
                 if (network.chainId !== CONFIG.network.chainId) {
-                    throw new Error(`Please switch to ${CONFIG.network.name} (Chain ID: ${CONFIG.network.chainId})`);
+                    throw new Error(`❌ Wrong network! Please switch to ${CONFIG.network.name} (Chain ID: ${CONFIG.network.chainId}). Currently on Chain ID: ${network.chainId}`);
                 }
                 
                 // Create contract instance
@@ -47,10 +197,26 @@ class RebateAdmin {
                 
                 // Verify authorization
                 const signerAddress = await this.signer.getAddress();
-                const isAuthorized = await this.contract.isAuthorized(signerAddress);
+                console.log(`🔍 Checking authorization for wallet: ${signerAddress}`);
                 
-                if (!isAuthorized) {
-                    throw new Error('Your wallet is not authorized to record rebates');
+                try {
+                    const isAuthorized = await this.contract.isAuthorized(signerAddress);
+                    console.log(`🔐 Authorization status: ${isAuthorized}`);
+                    
+                    if (!isAuthorized) {
+                        // Check if this is the contract owner
+                        const owner = await this.contract.owner();
+                        console.log(`👑 Contract owner: ${owner}`);
+                        
+                        if (signerAddress.toLowerCase() === owner.toLowerCase()) {
+                            console.log('✅ Connected as contract owner - authorization granted');
+                        } else {
+                            throw new Error(`❌ Wallet not authorized. Owner: ${owner.slice(0,6)}...${owner.slice(-4)}, Your wallet: ${signerAddress.slice(0,6)}...${signerAddress.slice(-4)}`);
+                        }
+                    }
+                } catch (authError) {
+                    console.error('Authorization check failed:', authError);
+                    throw new Error(`Authorization check failed: ${authError.message}`);
                 }
                 
                 this.isConnected = true;
@@ -543,7 +709,7 @@ class RebateAdmin {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new RebateAdmin();
+    window.rebateAdmin = new RebateAdmin();
 });
 
 // Handle page visibility changes (refresh data when tab becomes visible)
