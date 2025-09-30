@@ -71,14 +71,50 @@
         <button onclick="window.location.href='index.html'">🔍 Back to Explorer</button>
     </div>
 
-    <!-- Load ethers.js -->
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
-    
     <!-- Load our config -->
     <script src="config.js"></script>
     
     <script>
         let results = [];
+        let ethersLoaded = false;
+        
+        // Enhanced ethers.js loading with multiple fallbacks
+        const ethersSources = [
+            'https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js',
+            'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js',
+            'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js'
+        ];
+
+        function loadEthers(sourceIndex = 0) {
+            if (sourceIndex >= ethersSources.length) {
+                addResult('error', '❌ ethers.js Library', 'All CDN sources failed to load');
+                document.getElementById('results').innerHTML += '<div class="test-result error"><strong>❌ Fatal Error</strong><br>Cannot proceed without ethers.js library</div>';
+                return;
+            }
+
+            console.log(`Attempting to load ethers from source ${sourceIndex + 1}:`, ethersSources[sourceIndex]);
+            
+            const script = document.createElement('script');
+            script.src = ethersSources[sourceIndex];
+            script.onload = function() {
+                if (typeof ethers !== 'undefined') {
+                    console.log('✅ Ethers.js loaded successfully from:', ethersSources[sourceIndex]);
+                    ethersLoaded = true;
+                    addResult('success', '✅ ethers.js Library', `Successfully loaded from CDN source ${sourceIndex + 1}`);
+                    // Continue with remaining tests after ethers is loaded
+                    continueTests();
+                } else {
+                    console.warn('Ethers loaded but not available globally, trying next source...');
+                    loadEthers(sourceIndex + 1);
+                }
+            };
+            script.onerror = function() {
+                console.warn(`Failed to load ethers from source ${sourceIndex + 1}, trying next...`);
+                addResult('info', '⚠️ ethers.js Library', `CDN source ${sourceIndex + 1} failed, trying backup...`);
+                loadEthers(sourceIndex + 1);
+            };
+            document.head.appendChild(script);
+        }
         
         function addResult(type, title, message, details = '') {
             results.push({ type, title, message, details });
@@ -98,18 +134,21 @@
         
         async function runTests() {
             results = [];
-            addResult('info', '🔄 Starting Tests', 'Running diagnostic tests...');
+            addResult('info', '🔄 Starting Tests', 'Loading ethers.js library...');
             
-            // Test 1: Check if ethers.js loaded
-            try {
-                if (typeof ethers !== 'undefined') {
-                    addResult('success', '✅ ethers.js Library', 'Successfully loaded');
-                } else {
-                    addResult('error', '❌ ethers.js Library', 'Library not loaded');
-                    return;
-                }
-            } catch (error) {
-                addResult('error', '❌ ethers.js Library', 'Error checking library', error.message);
+            // Start by loading ethers.js if not already loaded
+            if (typeof ethers === 'undefined') {
+                loadEthers();
+            } else {
+                ethersLoaded = true;
+                addResult('success', '✅ ethers.js Library', 'Already loaded');
+                continueTests();
+            }
+        }
+        
+        async function continueTests() {
+            if (!ethersLoaded) {
+                addResult('error', '❌ Cannot Continue', 'ethers.js library failed to load');
                 return;
             }
             

@@ -1,4 +1,58 @@
 // Cash Rebate Explorer Application
+
+// Enhanced ethers.js loading with multiple fallbacks
+let ethersLoadPromise = null;
+
+function loadEthersLibrary() {
+    if (ethersLoadPromise) return ethersLoadPromise;
+    
+    if (typeof ethers !== 'undefined') {
+        ethersLoadPromise = Promise.resolve(true);
+        return ethersLoadPromise;
+    }
+
+    const ethersSources = [
+        'https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js',
+        'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js',
+        'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js'
+    ];
+
+    ethersLoadPromise = new Promise((resolve, reject) => {
+        let sourceIndex = 0;
+
+        function tryLoadEthers() {
+            if (sourceIndex >= ethersSources.length) {
+                reject(new Error('All ethers.js CDN sources failed'));
+                return;
+            }
+
+            console.log(`Loading ethers from source ${sourceIndex + 1}:`, ethersSources[sourceIndex]);
+            
+            const script = document.createElement('script');
+            script.src = ethersSources[sourceIndex];
+            script.onload = function() {
+                if (typeof ethers !== 'undefined') {
+                    console.log('✅ Ethers.js loaded successfully from:', ethersSources[sourceIndex]);
+                    resolve(true);
+                } else {
+                    sourceIndex++;
+                    tryLoadEthers();
+                }
+            };
+            script.onerror = function() {
+                console.warn(`Failed to load ethers from source ${sourceIndex + 1}`);
+                sourceIndex++;
+                tryLoadEthers();
+            };
+            document.head.appendChild(script);
+        }
+
+        tryLoadEthers();
+    });
+
+    return ethersLoadPromise;
+}
+
 class CashRebateExplorer {
     constructor() {
         this.provider = null;
@@ -12,6 +66,9 @@ class CashRebateExplorer {
         this.setupEventListeners();
         
         try {
+            // First ensure ethers.js is loaded
+            await loadEthersLibrary();
+            
             // Initialize Web3 connection
             await this.initializeWeb3();
             
@@ -772,10 +829,13 @@ let explorerInstance = null;
 // Initialize explorer when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Load ethers.js first, then create explorer instance
+        await loadEthersLibrary();
         explorerInstance = new CashRebateExplorer();
-        await explorerInstance.init();
     } catch (error) {
         console.error('Failed to initialize explorer:', error);
+        // Show error message to user
+        document.body.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;"><h2>❌ Loading Error</h2><p>Failed to load required libraries. Please refresh the page.</p></div>';
     }
 });
 
