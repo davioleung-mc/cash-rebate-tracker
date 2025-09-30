@@ -248,6 +248,35 @@
             font-size: 0.9rem;
         }
 
+        /* Auto-switching and diagnostic button styles */
+        .auto-switch-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+            color: white !important;
+            border: none !important;
+            padding: 8px 16px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            margin: 5px !important;
+            font-weight: bold !important;
+            transition: transform 0.2s ease !important;
+        }
+
+        .auto-switch-btn:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4) !important;
+        }
+
+        .diagnostic-btn {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+            color: white !important;
+            border: none !important;
+            padding: 8px 16px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            margin: 5px !important;
+            font-weight: bold !important;
+        }
+
         @media (max-width: 768px) {
             .admin-container {
                 padding: 10px;
@@ -263,6 +292,12 @@
             
             .modal-content {
                 padding: 20px;
+            }
+
+            .auto-switch-btn, .diagnostic-btn {
+                width: 90% !important;
+                margin: 5px auto !important;
+                display: block !important;
             }
         }
     </style>

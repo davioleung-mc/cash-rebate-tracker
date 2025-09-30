@@ -38,17 +38,28 @@ class RebateAdmin {
                     🔍 Run Diagnostics
                 </button>
             `;
-        } else if (error.message.includes('Wrong network')) {
+        } else if (error.message.includes('Wrong network') || error.message.includes('switch to')) {
             errorHtml += `
                 🌐 <strong>Network Issue:</strong><br>
                 ${error.message}<br><br>
-                <strong>To fix:</strong><br>
-                1. Open MetaMask<br>
-                2. Click network dropdown<br>
-                3. Add Polygon Amoy Testnet if not present<br>
-                4. Switch to Polygon Amoy Testnet<br>
-                <button onclick="window.rebateAdmin.addAmoyNetwork()" class="btn btn-primary" style="margin-top: 10px;">
-                    ➕ Add Amoy Network to MetaMask
+                <strong>Auto-Fix Available:</strong><br>
+                <button onclick="window.rebateAdmin.switchToAmoyNetwork()" class="btn btn-primary" style="margin-top: 10px;">
+                    🔄 Auto-Switch to Polygon Amoy
+                </button>
+                <button onclick="window.rebateAdmin.addAmoyNetwork()" class="btn btn-secondary" style="margin-top: 10px;">
+                    ➕ Add Amoy Network
+                </button>
+            `;
+        } else if (error.message.includes('Contract connection failed')) {
+            errorHtml += `
+                📡 <strong>Contract Issue:</strong><br>
+                ${error.message}<br><br>
+                <strong>Solutions:</strong><br>
+                • Make sure you're on Polygon Amoy network<br>
+                • Contract might be temporarily unavailable<br>
+                • Try the wallet test page to diagnose further<br>
+                <button onclick="window.location.href='wallet-test.html'" class="btn btn-secondary" style="margin-top: 10px;">
+                    🧪 Run Wallet Test
                 </button>
             `;
         } else if (error.message.includes('MetaMask')) {
@@ -84,15 +95,11 @@ class RebateAdmin {
             await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [{
-                    chainId: '0x13882', // 80002 in hex
-                    chainName: 'Polygon Amoy Testnet',
-                    nativeCurrency: {
-                        name: 'MATIC',
-                        symbol: 'MATIC',
-                        decimals: 18
-                    },
-                    rpcUrls: ['https://rpc-amoy.polygon.technology/'],
-                    blockExplorerUrls: ['https://amoy.polygonscan.com/']
+                    chainId: CONFIG.network.chainIdHex,
+                    chainName: CONFIG.network.name,
+                    nativeCurrency: CONFIG.network.nativeCurrency,
+                    rpcUrls: CONFIG.network.rpcUrls,
+                    blockExplorerUrls: [CONFIG.network.explorerUrl]
                 }]
             });
             
@@ -100,6 +107,29 @@ class RebateAdmin {
             setTimeout(() => location.reload(), 2000);
         } catch (error) {
             this.showStatus('error', `Failed to add network: ${error.message}`);
+        }
+    }
+
+    async switchToAmoyNetwork() {
+        try {
+            // First try to switch to existing network
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: CONFIG.network.chainIdHex }],
+            });
+            
+            this.showStatus('success', 'Switched to Polygon Amoy! Refreshing...');
+            setTimeout(() => location.reload(), 1500);
+            
+        } catch (switchError) {
+            console.log('Switch failed, trying to add network:', switchError);
+            
+            // If network doesn't exist, add it
+            if (switchError.code === 4902 || switchError.code === -32603) {
+                await this.addAmoyNetwork();
+            } else {
+                throw switchError;
+            }
         }
     }
 
@@ -189,21 +219,41 @@ class RebateAdmin {
                 this.provider = new ethers.providers.Web3Provider(window.ethereum);
                 this.signer = this.provider.getSigner();
                 
-                // Verify network
+                // Verify network and auto-switch if needed
                 const network = await this.provider.getNetwork();
                 console.log(`🌐 Connected to network: ${network.name} (Chain ID: ${network.chainId})`);
                 console.log(`🎯 Expected network: ${CONFIG.network.name} (Chain ID: ${CONFIG.network.chainId})`);
                 
                 if (network.chainId !== CONFIG.network.chainId) {
-                    throw new Error(`❌ Wrong network! Please switch to ${CONFIG.network.name} (Chain ID: ${CONFIG.network.chainId}). Currently on Chain ID: ${network.chainId}`);
+                    console.log('⚠️ Wrong network detected, attempting auto-switch...');
+                    
+                    this.showStatus('info', `Wrong network detected. Switching to ${CONFIG.network.name}...`);
+                    
+                    try {
+                        await this.switchToAmoyNetwork();
+                        return; // Exit here, page will reload after switch
+                    } catch (switchError) {
+                        console.error('Auto-switch failed:', switchError);
+                        throw new Error(`❌ Please manually switch to ${CONFIG.network.name} (Chain ID: ${CONFIG.network.chainId}). Currently on Chain ID: ${network.chainId}`);
+                    }
                 }
                 
-                // Create contract instance
+                // Create contract instance with robust ABI
                 this.contract = new ethers.Contract(
                     CONFIG.contractAddress,
                     CONFIG.contractABI,
                     this.signer
                 );
+                
+                // Test contract connectivity immediately
+                console.log('🔗 Testing contract connection...');
+                try {
+                    const totalRecords = await this.contract.getTotalRecords();
+                    console.log('✅ Contract connection successful, total records:', totalRecords.toString());
+                } catch (contractError) {
+                    console.error('❌ Contract test failed:', contractError);
+                    throw new Error(`Contract connection failed: ${contractError.message}`);
+                }
                 
                 // Verify authorization
                 const signerAddress = await this.signer.getAddress();

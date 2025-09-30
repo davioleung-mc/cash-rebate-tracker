@@ -3,16 +3,21 @@ const CONFIG = {
     // Your deployed contract address on Amoy testnet
     contractAddress: "0x4A9AE17B2CA4BB5b18f6FaceCfBF91fe42c495e6",
     
-    // Amoy Testnet Configuration with multiple RPC endpoints
+    // Amoy Testnet Configuration with automatic network switching
     network: {
         name: "Polygon Amoy Testnet",
         chainId: 80002,
+        chainIdHex: "0x13882", // 80002 in hex for MetaMask
         rpcUrls: [
             "https://rpc-amoy.polygon.technology/",
             "https://polygon-amoy.drpc.org",
-            "https://polygon-amoy.blockpi.network/v1/rpc/public",
-            "https://amoy.polygonscan.com/api/eth_jsonRpc"
+            "https://polygon-amoy.blockpi.network/v1/rpc/public"
         ],
+        nativeCurrency: {
+            name: "MATIC",
+            symbol: "MATIC",
+            decimals: 18
+        },
         explorerUrl: "https://amoy.polygonscan.com"
     },
     

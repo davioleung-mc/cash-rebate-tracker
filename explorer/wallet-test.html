@@ -218,22 +218,38 @@
             }
 
             try {
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const contract = new ethers.Contract(
-                    CONFIG.contractAddress,
-                    ['function owner() view returns (address)'],
-                    provider
-                );
+                try {
+                            const provider = new ethers.providers.Web3Provider(window.ethereum);
+                            const contract = new ethers.Contract(
+                                CONFIG.contractAddress,
+                                [
+                                    'function owner() view returns (address)',
+                                    'function getTotalRecords() view returns (uint256)'
+                                ],
+                                provider
+                            );
 
-                const owner = await contract.owner();
-                addResult('success', `✅ Contract accessible. Owner: ${owner}`);
-                
-                const expectedOwner = '0x3393520e9078C0702d932569ea6E197995dc8D25';
-                if (owner.toLowerCase() === expectedOwner.toLowerCase()) {
-                    addResult('success', '✅ Contract owner matches deployment wallet!');
-                } else {
-                    addResult('warning', `⚠️ Unexpected owner. Expected: ${expectedOwner}`);
-                }
+                            // Test both methods
+                            const owner = await contract.owner();
+                            addResult('success', `✅ Contract owner accessible: ${owner.slice(0,6)}...${owner.slice(-4)}`);
+                            
+                            const totalRecords = await contract.getTotalRecords();
+                            addResult('success', `✅ Contract methods working. Total records: ${totalRecords.toString()}`);
+                            
+                            const expectedOwner = '0x3393520e9078C0702d932569ea6E197995dc8D25';
+                            if (owner.toLowerCase() === expectedOwner.toLowerCase()) {
+                                addResult('success', '✅ Contract owner matches deployment wallet!');
+                            } else {
+                                addResult('warning', `⚠️ Unexpected owner. Expected: ${expectedOwner}`);
+                            }
+
+                        } catch (error) {
+                            addResult('error', `❌ Contract test failed: ${error.message}`);
+                            
+                            if (error.message.includes('CALL_EXCEPTION')) {
+                                addResult('warning', `💡 This might be an ABI mismatch or network issue. Try switching networks first.`);
+                            }
+                        }
 
             } catch (error) {
                 addResult('error', `❌ Contract test failed: ${error.message}`);
