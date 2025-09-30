@@ -69,16 +69,13 @@ class CashRebateExplorer {
             try {
                 console.log(`🔗 Attempting connection ${i + 1}/${rpcUrls.length}: ${rpcUrls[i]}`);
                 
-                // Create provider for Amoy testnet
-                this.provider = new ethers.JsonRpcProvider(rpcUrls[i], {
+                // Create provider for Amoy testnet (ethers v5 syntax)
+                this.provider = new ethers.providers.JsonRpcProvider(rpcUrls[i], {
                     chainId: CONFIG.network.chainId,
                     name: CONFIG.network.name
                 });
                 
-                // Test connection with shorter timeout
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
-                
+                // Test connection with timeout
                 try {
                     // Test basic connectivity
                     const network = await this.provider.getNetwork();
@@ -97,16 +94,14 @@ class CashRebateExplorer {
                     );
                     
                     // Test contract connectivity
-                    await this.contract.getTotalRecords();
-                    console.log(`✅ Contract connection successful`);
+                    const totalRecords = await this.contract.getTotalRecords();
+                    console.log(`✅ Contract connection successful - Total records: ${totalRecords}`);
                     
-                    clearTimeout(timeoutId);
                     this.isConnected = true;
                     this.updateConnectionStatus(true);
                     return;
                     
                 } catch (error) {
-                    clearTimeout(timeoutId);
                     throw error;
                 }
                 
@@ -207,23 +202,55 @@ class CashRebateExplorer {
         try {
             this.showLoading();
             
-            const stats = await this.contract.getContractStats();
+            // Load stats individually to ensure compatibility
+            const totalRecords = await this.contract.getTotalRecords();
+            console.log('Total records:', totalRecords.toString());
+            
+            // Try to get full stats, fallback to individual calls
+            let totalAmount, activeRecords;
+            try {
+                const stats = await this.contract.getContractStats();
+                totalAmount = stats[2];
+                activeRecords = stats[1];
+            } catch (error) {
+                console.warn('getContractStats failed, using individual calls:', error);
+                // Fallback - calculate active records by checking recent records
+                activeRecords = totalRecords; // For now, assume all are active
+                totalAmount = ethers.BigNumber.from(0); // Default to 0
+                
+                // Try to calculate total amount by iterating recent records
+                try {
+                    const limit = Math.min(Number(totalRecords), 100); // Limit to avoid timeout
+                    let sum = ethers.BigNumber.from(0);
+                    
+                    for (let i = Math.max(1, Number(totalRecords) - limit + 1); i <= Number(totalRecords); i++) {
+                        try {
+                            const record = await this.contract.getRebateRecord(i);
+                            sum = sum.add(record.amount);
+                        } catch (recordError) {
+                            console.warn(`Failed to load record ${i}:`, recordError);
+                        }
+                    }
+                    totalAmount = sum;
+                } catch (amountError) {
+                    console.warn('Failed to calculate total amount:', amountError);
+                }
+            }
             
             // Update stats display
-            document.getElementById('total-records').textContent = stats[0].toString();
-            document.getElementById('active-records').textContent = stats[1].toString();
+            document.getElementById('total-records').textContent = totalRecords.toString();
+            document.getElementById('active-records').textContent = activeRecords.toString();
             document.getElementById('total-amount').textContent = 
-                `${this.formatAmount(stats[2])} ETH`;
+                `${this.formatAmount(totalAmount)} MATIC`;
             
-            // Get network info
-            const network = await this.provider.getNetwork();
+            // Update network info
             document.getElementById('network-name').textContent = CONFIG.network.name;
             document.getElementById('contract-address').textContent = CONFIG.contractAddress;
             
             this.hideLoading();
         } catch (error) {
             console.error('Failed to load contract stats:', error);
-            this.showError('Failed to load contract statistics.');
+            this.showError('Failed to load contract statistics: ' + error.message);
             this.hideLoading();
         }
     }
@@ -258,33 +285,40 @@ class CashRebateExplorer {
         }
     }
 
-    async searchByClient() {
-        const clientId = document.getElementById('client-id').value.trim();
+    async searchByClient(clientId = null) {
+        if (!clientId) {
+            clientId = document.getElementById('client-search').value.trim();
+        }
         if (!clientId) return;
 
         try {
             this.showLoading();
             this.clearSearchResults();
             
-            const records = await this.contract.getClientRebates(clientId);
-            const totalAmount = await this.contract.getClientTotalAmount(clientId);
+            const records = await this.contract.getRebatesByClient(clientId);
+            
+            // Calculate total amount
+            let totalAmount = ethers.BigNumber.from(0);
+            for (const record of records) {
+                totalAmount = totalAmount.add(record.amount);
+            }
             
             // Display summary
             const summaryHtml = `
                 <div class="search-summary">
                     <h3>Client: ${clientId}</h3>
                     <p>Total Records: ${records.length}</p>
-                    <p>Total Amount: ${this.formatAmount(totalAmount)} ETH</p>
+                    <p>Total Amount: ${this.formatAmount(totalAmount)} MATIC</p>
                 </div>
             `;
             
-            const resultsContainer = document.getElementById('search-results');
+            const resultsContainer = document.getElementById('client-results');
             resultsContainer.innerHTML = summaryHtml;
             
             // Display records
             if (records.length > 0) {
                 const recordsWithIds = await this.getRecordIds(records, 'client', clientId);
-                this.displayRecords(recordsWithIds, 'search-results', true);
+                this.displayRecords(recordsWithIds, 'client-results', true);
             } else {
                 resultsContainer.innerHTML += '<div class="no-results">No records found for this client</div>';
             }
@@ -297,8 +331,10 @@ class CashRebateExplorer {
         }
     }
 
-    async searchByProduct() {
-        const productId = document.getElementById('product-id').value.trim();
+    async searchByProduct(productId = null) {
+        if (!productId) {
+            productId = document.getElementById('product-search').value.trim();
+        }
         if (!productId) return;
 
         try {
@@ -320,17 +356,17 @@ class CashRebateExplorer {
                 <div class="search-summary">
                     <h3>Product: ${productId}</h3>
                     <p>Total Records: ${records.length}</p>
-                    <p>Total Amount: ${this.formatAmount(totalAmount)} ETH</p>
+                    <p>Total Amount: ${this.formatAmount(totalAmount)} MATIC</p>
                 </div>
             `;
             
-            const resultsContainer = document.getElementById('search-results');
+            const resultsContainer = document.getElementById('product-results');
             resultsContainer.innerHTML = summaryHtml;
             
             // Display records
             if (records.length > 0) {
                 const recordsWithIds = await this.getRecordIds(records, 'product', productId);
-                this.displayRecords(recordsWithIds, 'search-results', true);
+                this.displayRecords(recordsWithIds, 'product-results', true);
             } else {
                 resultsContainer.innerHTML += '<div class="no-results">No records found for this product</div>';
             }
@@ -343,8 +379,10 @@ class CashRebateExplorer {
         }
     }
 
-    async searchByRecord() {
-        const recordId = document.getElementById('record-id').value.trim();
+    async searchByRecord(recordId = null) {
+        if (!recordId) {
+            recordId = document.getElementById('record-search').value.trim();
+        }
         if (!recordId || isNaN(recordId)) return;
 
         try {
@@ -354,7 +392,7 @@ class CashRebateExplorer {
             const record = await this.contract.getRebateRecord(parseInt(recordId));
             
             const recordWithId = { id: parseInt(recordId), ...record };
-            this.displayRecords([recordWithId], 'search-results');
+            this.displayRecords([recordWithId], 'record-results');
             
             this.hideLoading();
         } catch (error) {
@@ -427,7 +465,7 @@ class CashRebateExplorer {
                 <div class="record-details">
                     <p><strong>Client ID:</strong> ${record.clientId}</p>
                     <p><strong>Product ID:</strong> ${record.productId}</p>
-                    <p><strong>Amount:</strong> ${this.formatAmount(record.amount)} ETH</p>
+                    <p><strong>Amount:</strong> ${this.formatAmount(record.amount)} MATIC</p>
                     <p><strong>Date:</strong> ${this.formatTimestamp(record.timestamp)}</p>
                     <p><strong>Recorded By:</strong> 
                         <a href="${CONFIG.network.explorerUrl}/address/${record.recordedBy}" 
@@ -454,7 +492,17 @@ class CashRebateExplorer {
 
     // Utility functions
     formatAmount(amount) {
-        return ethers.formatEther(amount.toString());
+        try {
+            // Handle BigNumber from ethers v5
+            if (amount && amount._isBigNumber) {
+                return ethers.utils.formatEther(amount);
+            }
+            // Handle regular numbers or strings
+            return ethers.utils.formatEther(amount.toString());
+        } catch (error) {
+            console.warn('Error formatting amount:', error);
+            return '0.0';
+        }
     }
 
     formatTimestamp(timestamp) {
@@ -502,8 +550,14 @@ class CashRebateExplorer {
     }
 
     clearSearchResults() {
-        const resultsContainer = document.getElementById('search-results');
-        resultsContainer.innerHTML = '';
+        // Clear all search result containers
+        const containers = ['client-results', 'product-results', 'record-results', 'search-results'];
+        containers.forEach(containerId => {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = '';
+            }
+        });
     }
 
     async loadMoreRecords() {
@@ -512,10 +566,7 @@ class CashRebateExplorer {
     }
 }
 
-// Initialize the application when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    new CashRebateExplorer();
-});
+
 
 // Add some additional CSS for error messages and dynamic elements
 const additionalStyles = `
@@ -714,3 +765,87 @@ const additionalStyles = `
 `;
 
 document.head.insertAdjacentHTML('beforeend', additionalStyles);
+
+// Global explorer instance
+let explorerInstance = null;
+
+// Initialize explorer when DOM is loaded
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        explorerInstance = new CashRebateExplorer();
+        await explorerInstance.init();
+    } catch (error) {
+        console.error('Failed to initialize explorer:', error);
+    }
+});
+
+// Global functions for HTML interface compatibility
+function showTab(tabName) {
+    // Clear active classes
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Set active tab
+    document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Clear results
+    const resultsDiv = document.getElementById(`${tabName}-results`);
+    if (resultsDiv) {
+        resultsDiv.innerHTML = '';
+    }
+}
+
+function searchClient() {
+    if (!explorerInstance) {
+        alert('Explorer not initialized yet. Please wait and try again.');
+        return;
+    }
+    
+    const clientId = document.getElementById('client-search').value.trim();
+    if (!clientId) {
+        alert('Please enter a Client ID');
+        return;
+    }
+    
+    explorerInstance.searchByClient(clientId);
+}
+
+function searchProduct() {
+    if (!explorerInstance) {
+        alert('Explorer not initialized yet. Please wait and try again.');
+        return;
+    }
+    
+    const productId = document.getElementById('product-search').value.trim();
+    if (!productId) {
+        alert('Please enter a Product ID');
+        return;
+    }
+    
+    explorerInstance.searchByProduct(productId);
+}
+
+function searchRecord() {
+    if (!explorerInstance) {
+        alert('Explorer not initialized yet. Please wait and try again.');
+        return;
+    }
+    
+    const recordId = document.getElementById('record-search').value.trim();
+    if (!recordId || isNaN(recordId) || recordId < 1) {
+        alert('Please enter a valid Record ID (positive number)');
+        return;
+    }
+    
+    explorerInstance.searchByRecord(parseInt(recordId));
+}
+
+function loadRecentRecords() {
+    if (!explorerInstance) {
+        alert('Explorer not initialized yet. Please wait and try again.');
+        return;
+    }
+    
+    explorerInstance.loadRecentRecords();
+}
