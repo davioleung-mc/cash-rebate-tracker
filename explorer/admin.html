@@ -429,6 +429,20 @@
 
     <!-- Scripts -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script>
+        // Wait for ethers to load before proceeding
+        window.addEventListener('load', function() {
+            if (typeof ethers === 'undefined') {
+                console.error('Ethers.js failed to load, trying alternative CDN...');
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                script.onload = function() {
+                    console.log('Ethers.js loaded from alternative CDN');
+                };
+                document.head.appendChild(script);
+            }
+        });
+    </script>
     <script src="config.js"></script>
     <script src="admin.js"></script>
 </body>

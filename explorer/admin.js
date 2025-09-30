@@ -169,11 +169,21 @@ class RebateAdmin {
     }
 
     async initializeWeb3() {
+        // Check if ethers is available
+        if (typeof ethers === 'undefined') {
+            throw new Error('🦊 MetaMask Issue: ethers.js library not loaded - please refresh the page');
+        }
+        
+        console.log('✅ Ethers.js loaded, version:', ethers.version);
+        
         // Check if MetaMask is available
         if (typeof window.ethereum !== 'undefined') {
             try {
+                console.log('🦊 MetaMask detected, requesting account access...');
+                
                 // Request account access
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                console.log('✅ Account access granted:', accounts[0]);
                 
                 // Create provider and signer
                 this.provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -199,24 +209,34 @@ class RebateAdmin {
                 const signerAddress = await this.signer.getAddress();
                 console.log(`🔍 Checking authorization for wallet: ${signerAddress}`);
                 
+                // Known deployment address (should be authorized)
+                const DEPLOYMENT_ADDRESS = '0x3393520e9078C0702d932569ea6E197995dc8D25';
+                
                 try {
-                    const isAuthorized = await this.contract.isAuthorized(signerAddress);
-                    console.log(`🔐 Authorization status: ${isAuthorized}`);
+                    const owner = await this.contract.owner();
+                    console.log(`� Contract owner: ${owner}`);
                     
-                    if (!isAuthorized) {
-                        // Check if this is the contract owner
-                        const owner = await this.contract.owner();
-                        console.log(`👑 Contract owner: ${owner}`);
+                    // Check if connected wallet is the owner
+                    const isOwner = signerAddress.toLowerCase() === owner.toLowerCase();
+                    console.log(`🔐 Is owner: ${isOwner}`);
+                    
+                    if (isOwner) {
+                        console.log('✅ Connected as contract owner - full authorization');
+                    } else {
+                        // Check if authorized via isAuthorized function
+                        const isAuthorized = await this.contract.isAuthorized(signerAddress);
+                        console.log(`🔐 Authorization status: ${isAuthorized}`);
                         
-                        if (signerAddress.toLowerCase() === owner.toLowerCase()) {
-                            console.log('✅ Connected as contract owner - authorization granted');
-                        } else {
-                            throw new Error(`❌ Wallet not authorized. Owner: ${owner.slice(0,6)}...${owner.slice(-4)}, Your wallet: ${signerAddress.slice(0,6)}...${signerAddress.slice(-4)}`);
+                        if (!isAuthorized) {
+                            throw new Error(`❌ Wallet not authorized. Expected deployment wallet: ${DEPLOYMENT_ADDRESS.slice(0,6)}...${DEPLOYMENT_ADDRESS.slice(-4)}, Your wallet: ${signerAddress.slice(0,6)}...${signerAddress.slice(-4)}`);
                         }
                     }
                 } catch (authError) {
                     console.error('Authorization check failed:', authError);
-                    throw new Error(`Authorization check failed: ${authError.message}`);
+                    if (authError.message.includes('not authorized')) {
+                        throw authError; // Re-throw our custom error
+                    }
+                    throw new Error(`Contract connection failed: ${authError.message}`);
                 }
                 
                 this.isConnected = true;

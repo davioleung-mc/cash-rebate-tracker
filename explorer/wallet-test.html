@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-box {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .warning { border-color: #ffc107; background: #fff3cd; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .code { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Wallet Connection Test</h1>
+    <p>This page will test your wallet connection step by step.</p>
+
+    <div id="results"></div>
+
+    <button onclick="runFullTest()">🔄 Run Complete Test</button>
+    <button onclick="testEthers()">📚 Test Ethers.js</button>
+    <button onclick="testMetaMask()">🦊 Test MetaMask</button>
+    <button onclick="connectWallet()">🔗 Connect Wallet</button>
+
+    <div class="test-box">
+        <h3>Expected Results:</h3>
+        <div class="code">
+            Your wallet: 0x3393520e9078C0702d932569ea6E197995dc8D25<br>
+            Expected network: Polygon Amoy (Chain ID: 80002)<br>
+            Contract: 0x4A9AE17B2CA4BB5b18f6FaceCfBF91fe42c495e6
+        </div>
+    </div>
+
+    <!-- Load ethers.js with multiple fallbacks -->
+    <script>
+        let ethersLoaded = false;
+        
+        function loadScript(src, callback) {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = callback;
+            script.onerror = () => {
+                addResult('error', `Failed to load: ${src}`);
+                tryNextEthers();
+            };
+            document.head.appendChild(script);
+        }
+
+        const ethersSources = [
+            'https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js',
+            'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js',
+            'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js'
+        ];
+
+        let currentEthersIndex = 0;
+
+        function tryNextEthers() {
+            if (currentEthersIndex < ethersSources.length && !ethersLoaded) {
+                loadScript(ethersSources[currentEthersIndex], () => {
+                    if (typeof ethers !== 'undefined') {
+                        ethersLoaded = true;
+                        addResult('success', `✅ Ethers.js loaded from: ${ethersSources[currentEthersIndex]}`);
+                        addResult('success', `Version: ${ethers.version}`);
+                    }
+                });
+                currentEthersIndex++;
+            } else if (!ethersLoaded) {
+                addResult('error', '❌ All ethers.js sources failed');
+            }
+        }
+
+        // Start loading ethers
+        tryNextEthers();
+    </script>
+
+    <!-- Load config -->
+    <script src="config.js"></script>
+
+    <script>
+        function addResult(type, message) {
+            const div = document.createElement('div');
+            div.className = `test-box ${type}`;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function testEthers() {
+            document.getElementById('results').innerHTML = '';
+            
+            if (typeof ethers === 'undefined') {
+                addResult('error', '❌ ethers.js not loaded');
+                addResult('warning', 'Trying to reload...');
+                tryNextEthers();
+                return;
+            }
+
+            addResult('success', `✅ ethers.js loaded successfully`);
+            addResult('success', `Version: ${ethers.version}`);
+            
+            // Test basic functionality
+            try {
+                const testWallet = ethers.Wallet.createRandom();
+                addResult('success', '✅ Ethers functionality test passed');
+            } catch (error) {
+                addResult('error', `❌ Ethers functionality error: ${error.message}`);
+            }
+        }
+
+        async function testMetaMask() {
+            if (typeof window.ethereum === 'undefined') {
+                addResult('error', '❌ MetaMask not detected');
+                addResult('warning', 'Please install MetaMask: https://metamask.io/download/');
+                return;
+            }
+
+            addResult('success', '✅ MetaMask detected');
+
+            try {
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const chainIdDecimal = parseInt(chainId, 16);
+                addResult('success', `Current network: Chain ID ${chainIdDecimal}`);
+                
+                if (chainIdDecimal === 80002) {
+                    addResult('success', '✅ Connected to Polygon Amoy Testnet');
+                } else {
+                    addResult('warning', `⚠️ Wrong network. Please switch to Polygon Amoy (Chain ID: 80002)`);
+                }
+                
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    addResult('success', `✅ Wallet connected: ${accounts[0]}`);
+                    
+                    const expectedWallet = '0x3393520e9078C0702d932569ea6E197995dc8D25';
+                    if (accounts[0].toLowerCase() === expectedWallet.toLowerCase()) {
+                        addResult('success', '✅ Correct deployment wallet connected!');
+                    } else {
+                        addResult('warning', `⚠️ Different wallet. Expected: ${expectedWallet}`);
+                    }
+                } else {
+                    addResult('warning', '⚠️ No wallet connected. Please connect MetaMask.');
+                }
+                
+            } catch (error) {
+                addResult('error', `❌ MetaMask error: ${error.message}`);
+            }
+        }
+
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                addResult('error', '❌ Please install MetaMask first');
+                return;
+            }
+
+            try {
+                addResult('warning', 'Requesting wallet connection...');
+                
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                addResult('success', `✅ Wallet connected: ${accounts[0]}`);
+                
+                // Test ethers integration
+                if (typeof ethers !== 'undefined') {
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const signer = provider.getSigner();
+                    const address = await signer.getAddress();
+                    
+                    addResult('success', `✅ Ethers integration working: ${address}`);
+                } else {
+                    addResult('error', '❌ Ethers not available for integration test');
+                }
+                
+            } catch (error) {
+                addResult('error', `❌ Connection failed: ${error.message}`);
+            }
+        }
+
+        async function testContract() {
+            if (typeof ethers === 'undefined') {
+                addResult('error', '❌ Ethers not loaded');
+                return;
+            }
+
+            if (typeof CONFIG === 'undefined') {
+                addResult('error', '❌ Config not loaded');
+                return;
+            }
+
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const contract = new ethers.Contract(
+                    CONFIG.contractAddress,
+                    ['function owner() view returns (address)'],
+                    provider
+                );
+
+                const owner = await contract.owner();
+                addResult('success', `✅ Contract accessible. Owner: ${owner}`);
+                
+                const expectedOwner = '0x3393520e9078C0702d932569ea6E197995dc8D25';
+                if (owner.toLowerCase() === expectedOwner.toLowerCase()) {
+                    addResult('success', '✅ Contract owner matches deployment wallet!');
+                } else {
+                    addResult('warning', `⚠️ Unexpected owner. Expected: ${expectedOwner}`);
+                }
+
+            } catch (error) {
+                addResult('error', `❌ Contract test failed: ${error.message}`);
+            }
+        }
+
+        async function runFullTest() {
+            document.getElementById('results').innerHTML = '';
+            addResult('warning', '🧪 Running comprehensive test...');
+            
+            await testEthers();
+            await testMetaMask();
+            await testContract();
+            
+            addResult('success', '🎉 Test completed! Check results above.');
+        }
+
+        // Auto-run test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runFullTest, 1000); // Give ethers time to load
+        });
+    </script>
+</body>
+</html>
